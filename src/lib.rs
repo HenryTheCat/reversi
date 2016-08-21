@@ -10,15 +10,9 @@
 #![crate_name = "reversi"]
 #![crate_type = "lib"]
 
-#![feature(test)]
-extern crate test;
-
 pub mod board;
 pub mod turn;
 pub mod game;
-
-#[cfg(test)]
-mod revtest;
 
 use std::fmt;
 use board::{Coord, Direction};
