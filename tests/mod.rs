@@ -16,16 +16,17 @@ struct FoolPlayer;
 
 impl game::IsPlayer<()> for FoolPlayer {
     fn make_move(&self, turn: &Turn) -> reversi::Result<PlayerAction<()>> {
-        for index in 0..board::NUM_CELLS {
-            let coord = Coord::from_index(index).unwrap();
-            // println!("Fool checks {:?}", coord);
-            if turn.check_move(coord).is_ok() {
-                // println!("Fool plays {:?}", coord);
-                return Ok(PlayerAction::Move(coord));
+        for (row, &row_array) in turn.get_board().get_all_cells().into_iter().enumerate() {
+            for (col, &_) in row_array.into_iter().enumerate() {
+                let coord = Coord::new(row, col);
+                // println!("Fool checks {:?}", coord);
+                if turn.check_move(coord).is_ok() {
+                    // println!("Fool plays {:?}", coord);
+                    return Ok(PlayerAction::Move(coord));
+                }
             }
         }
-        println!("No move");
-        Err(ReversiError::EndedGame(*turn))
+        Err(ReversiError::EndedGame)
     }
 }
 
@@ -34,32 +35,34 @@ struct SimplePlayer;
 
 impl game::IsPlayer<()> for SimplePlayer {
     fn make_move(&self, turn: &Turn) -> reversi::Result<PlayerAction<()>> {
-        let mut best_move = Coord{row: 0, col: 0};
-        let mut best_score = match *turn.get_state() {
+        let mut best_move = Coord::new(0, 0);
+        let mut best_score = match turn.get_state() {
             Some(Side::Dark)  => i16::max_value(),
             Some(Side::Light) => i16::min_value(),
-            None => return Err(ReversiError::EndedGame(*turn)),
+            None => return Err(ReversiError::EndedGame),
         };
 
-        for index in 0..board::NUM_CELLS {
-            let coord = Coord::from_index(index).unwrap();
-            if turn.check_move(coord).is_ok() {
-                let new_score = self.eval(&turn.check_and_move(coord).unwrap(), 3);
-                match *turn.get_state() {
-                    Some(Side::Dark)  => {
-                        if new_score < best_score {
-                            best_move = coord;
-                            best_score = new_score;
-                        }
-                    },
-                    Some(Side::Light) => {
-                        if new_score > best_score {
-                            best_move = coord;
-                            best_score = new_score;
-                        }
-                    },
-                    None => return Err(ReversiError::EndedGame(*turn)),
-                };
+        for row in 0..board::BOARD_SIZE {
+            for col in 0..board::BOARD_SIZE {
+                let coord = Coord::new(row, col);
+                if turn.check_move(coord).is_ok() {
+                    let new_score = self.eval(&turn.make_move(coord).unwrap(), 3);
+                    match turn.get_state() {
+                        Some(Side::Dark)  => {
+                            if new_score < best_score {
+                                best_move = coord;
+                                best_score = new_score;
+                            }
+                        },
+                        Some(Side::Light) => {
+                            if new_score > best_score {
+                                best_move = coord;
+                                best_score = new_score;
+                            }
+                        },
+                        None => return Err(ReversiError::EndedGame),
+                    };
+                }
             }
         }
         // println!("Simple plays {:?}", best_move);
@@ -69,7 +72,7 @@ impl game::IsPlayer<()> for SimplePlayer {
 
 impl SimplePlayer {
     fn eval(&self, turn: &Turn, depth: u8) -> i16 {
-        match *turn.get_state() {
+        match turn.get_state() {
             None => turn.get_score_diff() * board::NUM_CELLS as i16,
             Some(side) => {
                 if depth == 0 {
@@ -81,22 +84,15 @@ impl SimplePlayer {
                         Side::Light => i16::min_value(),
                     };
 
-                    for index in 0..board::NUM_CELLS {
-                        let coord = Coord::from_index(index).unwrap();
-                        if turn.check_move(coord).is_ok() {
-                            let new_score = self.eval(&turn.check_and_move(coord).unwrap(), depth - 1);
-                            match side {
-                                Side::Dark  => {
-                                    if new_score < best_score {
-                                        best_score = new_score;
-                                    }
-                                },
-                                Side::Light => {
-                                    if new_score > best_score {
-                                        best_score = new_score;
-                                    }
-                                },
-                            };
+                    for row in 0..board::BOARD_SIZE {
+                        for col in 0..board::BOARD_SIZE {
+                            if let Ok(new_score) = turn.make_move(Coord::new(row, col)).map(|turn_after_move| self.eval(&turn_after_move, depth -1)) {
+                                match side {
+                                    Side::Dark  if new_score < best_score => best_score = new_score,
+                                    Side::Light if new_score > best_score => best_score = new_score,
+                                    _ => {}
+                                };
+                            }
                         }
                     }
                     best_score
@@ -106,25 +102,40 @@ impl SimplePlayer {
     }
 }
 
+#[test]
+fn test_board() {
+    let mut board = board::Board::new(&[[None; board::BOARD_SIZE]; board::BOARD_SIZE]);
+    board.place_disk(Side::Dark, Coord::new(0, 0)).expect("Cannot fail");
+    assert!(board.get_cell(Coord::new(0, 0)).unwrap().unwrap().get_side() == Side::Dark);
+    board.flip_disk(Coord::new(0, 0)).expect("Cannot fail");
+    assert!(board.get_cell(Coord::new(0, 0)).unwrap().unwrap().get_side() == Side::Light);
+}
+
+
 /// Checks `turn::check_move` method on starting turn.
 #[test]
 fn test_first_turn() {
     let first_turn = Turn::first_turn();
-    for index in 0..first_turn.get_board().0.into_iter().len() {
-        let coord = Coord::from_index(index).unwrap();
-        assert!(first_turn.check_move(coord).is_ok() == match (coord.row, coord.col) {
-            (2, 3) | (3, 2) | (4, 5) | (5, 4) => true,
-            _ => false,
-        }, "fails at {:?} because {:?}", coord, first_turn.check_move(coord))
+
+    for row in 0..board::BOARD_SIZE {
+        for col in 0..board::BOARD_SIZE {
+            let coord = Coord::new(row, col);
+            assert!(first_turn.check_move(coord).is_ok() == match coord.get_row_col() {
+                (2, 3) | (3, 2) | (4, 5) | (5, 4) => true,
+                _ => false,
+            }, "fails at {:?} because {:?}", coord, first_turn.check_move(coord))
+        }
     }
 
-    let second_turn = first_turn.check_and_move(Coord{row: 2, col: 3}).unwrap();
-    for index in 0..second_turn.get_board().0.into_iter().len() {
-        let coord = Coord::from_index(index).unwrap();
-        assert!(second_turn.check_move(coord).is_ok() == match (coord.row, coord.col) {
-            (2, 2) | (2, 4) | (4, 2) => true,
-            _ => false,
-        }, "fails at {:?} because {:?}", coord, second_turn.check_move(coord))
+    let second_turn = first_turn.make_move(Coord::new(2, 3)).unwrap();
+    for row in 0..board::BOARD_SIZE {
+        for col in 0..board::BOARD_SIZE {
+            let coord = Coord::new(row, col);
+            assert!(second_turn.check_move(coord).is_ok() == match coord.get_row_col() {
+                (2, 2) | (2, 4) | (4, 2) => true,
+                _ => false,
+            }, "fails at {:?} because {:?}", coord, second_turn.check_move(coord))
+        }
     }
 
 }

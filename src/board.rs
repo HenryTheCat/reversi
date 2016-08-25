@@ -1,6 +1,5 @@
 //! Implementation of a 2D board (and of its constituing elements) with coordinates and iterators.
 
-use std::fmt;
 use ::Result;
 
 /// The number of cells per side of the board.
@@ -40,8 +39,8 @@ pub const DIRECTIONS: [Direction; 8] = [
 /// Follows matrices conventions (see <https://en.wikipedia.org/wiki/Matrix_(mathematics)>) but for starting indexes at 0.
 #[derive(Debug, Clone, Copy)]
 pub struct Coord {
-    pub row: usize,
-    pub col: usize,
+    row: usize,
+    col: usize,
 }
 
 impl Coord {
@@ -53,6 +52,22 @@ impl Coord {
         }
     }
 
+    /// Returns coordinate's components.
+    pub fn get_row_col(&self) -> (usize, usize) {
+        (self.row, self.col)
+    }
+
+    /// Returns coordinate's first component.
+    pub fn get_row(&self) -> usize {
+        self.row
+    }
+
+    /// Returns coordinate's second component.
+    pub fn get_col(&self) -> usize {
+        self.col
+    }
+
+    /// Checks both upper and lower bounds.
     pub fn check_bounds(&self) -> Result<()> {
         if self.row >= BOARD_SIZE || self.col >= BOARD_SIZE {
             Err(::ReversiError::OutOfBoundCoord(*self))
@@ -61,33 +76,17 @@ impl Coord {
         }
     }
 
-    pub fn into_index(&self) -> Result<usize> {
-        self.check_bounds().map(|()| self.row * BOARD_SIZE + self.col)
-    }
-
-    pub fn from_index(index: usize) -> Result<Coord> {
-        if index < NUM_CELLS {
-            Ok(Coord {
-                row: index / BOARD_SIZE,
-                col: index % BOARD_SIZE,
-            })
-        } else {
-            Err(::ReversiError::OutOfBoundIndex(index))
-        }
-    }
-
     /// Produces new indexes moving along a direction and checking for out-of-bound errors (meaning sub-zero indexes).
     pub fn step(&mut self, dir: Direction) -> Result<()> {
-        let (row, col) = (self.row, self.col);
         match dir {
-            Direction::North    if row > 0              => Ok({self.row -= 1;}),
-            Direction::NE       if row > 0              => Ok({self.row -= 1; self.col += 1;}),
-            Direction::East                             => Ok({self.col += 1;}),
-            Direction::SE                               => Ok({self.row += 1; self.col += 1;}),
-            Direction::South                            => Ok({self.row += 1;}),
-            Direction::SW       if col > 0              => Ok({self.row += 1; self.col -= 1;}),
-            Direction::West     if col > 0              => Ok({self.col -= 1;}),
-            Direction::NW       if row > 0 && col > 0   => Ok({self.row -= 1; self.col -= 1;}),
+            Direction::North    if self.row > 0                     => Ok({self.row -= 1;}),
+            Direction::NE       if self.row > 0                     => Ok({self.row -= 1; self.col += 1;}),
+            Direction::East                                         => Ok({self.col += 1;}),
+            Direction::SE                                           => Ok({self.row += 1; self.col += 1;}),
+            Direction::South                                        => Ok({self.row += 1;}),
+            Direction::SW       if self.col > 0                     => Ok({self.row += 1; self.col -= 1;}),
+            Direction::West     if self.col > 0                     => Ok({self.col -= 1;}),
+            Direction::NW       if self.row > 0 && self.col > 0     => Ok({self.row -= 1; self.col -= 1;}),
             _ => Err(::ReversiError::OutOfBoundStep(*self, dir)),
         }
     }
@@ -117,60 +116,67 @@ impl Disk {
 /// Each cell in the board can either be empty or taken by one of the players.
 pub type Cell = Option<Disk>;
 
-#[derive(Copy)]
-pub struct Board(pub [Cell; NUM_CELLS]);
-
-impl fmt::Debug for Board {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "This should be a board")
-    }
-}
-
-impl Clone for Board {
-    fn clone(&self) -> Board {
-        *self
-    }
-}
+#[derive(Debug, Clone)]
+pub struct Board([[Cell; BOARD_SIZE]; BOARD_SIZE]);
 
 /// `Board` is the type of boards, which are made by a `Frame`.
 impl Board {
-    pub fn get_cell(&self, coord: Coord) -> Result<&Cell> {
-        self.0.get(try!(coord.into_index())).ok_or(::ReversiError::OutOfBoundCoord(coord))
+    /// Creates a new board, given its cells.
+    pub fn new(cells: &[[Cell; BOARD_SIZE]; BOARD_SIZE]) -> Board {
+        Board(*cells)
     }
 
-    pub fn get_cell_by_index(&self, index: usize) -> Result<&Cell> {
-        self.0.get(index).ok_or(::ReversiError::OutOfBoundIndex(index))
+    /// Returns a non-mutable reference to the array of cells.
+    pub fn get_all_cells(&self) -> &[[Cell; BOARD_SIZE]; BOARD_SIZE] {
+        &self.0
     }
 
-    pub fn get_mut_cell(&mut self, coord: Coord) -> Result<&mut Cell> {
-        self.0.get_mut(try!(coord.into_index())).ok_or(::ReversiError::OutOfBoundCoord(coord))
+    /// Returns a non-mutable cell.
+    pub fn get_cell(&self, coord: Coord) -> Result<Cell> {
+        try!(self.0.get(coord.get_row()).ok_or(::ReversiError::OutOfBoundCoord(coord)))
+            .get(coord.get_col()).ok_or(::ReversiError::OutOfBoundCoord(coord)).map(|&cell| cell)
     }
 
-    pub fn get_mut_cell_by_index(&mut self, index: usize) -> Result<&mut Cell> {
-        self.0.get_mut(index).ok_or(::ReversiError::OutOfBoundIndex(index))
+    /// Returns a non-mutable disk.
+    pub fn get_disk(&self, coord: Coord) -> Result<Disk> {
+        match try!(self.get_cell(coord)) {
+            None => Err(::ReversiError::EmptyCell(coord)),
+            Some(disk) => Ok(disk),
+        }
     }
 
+
+    /// Returns a mutable reference to a cell (which is why it's private).
+    fn get_mut_cell(&mut self, coord: Coord) -> Result<&mut Cell> {
+        try!(self.0.get_mut(coord.get_row()).ok_or(::ReversiError::OutOfBoundCoord(coord)))
+            .get_mut(coord.get_col()).ok_or(::ReversiError::OutOfBoundCoord(coord))
+    }
+
+    /// Flips the disk on a non-empty cell.
     pub fn flip_disk(&mut self, coord: Coord) -> Result<()> {
-        try!(self.get_mut_cell(coord)).map(|mut disk| disk.flip()).ok_or(::ReversiError::EmptyCell(coord))
+        let cell = try!(self.get_mut_cell(coord));
+        match cell {
+            &mut Some(mut disk) => Ok({
+                disk.flip();
+                *cell = Some(disk);
+            }),
+            &mut None => Err(::ReversiError::EmptyCell(coord)),
+        }
     }
 
-    pub fn flip_disk_by_index(&mut self, index: usize) -> Result<()> {
-        try!(self.get_mut_cell_by_index(index)).map(|mut disk| disk.flip()).ok_or(::ReversiError::EmptyCell(try!(Coord::from_index(index))))
-    }
-
-    pub fn place_cell(&mut self, new_cell: Cell, coord: Coord) -> Result<()> {
-        self.get_mut_cell(coord).map(|mut cell| *cell = new_cell)
-    }
-
-    pub fn place_cell_by_index(&mut self, new_cell: Cell, index: usize) -> Result<()> {
-        self.get_mut_cell_by_index(index).map(|mut cell| *cell = new_cell)
-    }
-
-    pub fn place_disk(&mut self, disk: Disk, coord: Coord) -> Result<()> {
-        self.get_mut_cell(coord).map(|mut cell| *cell = Some(disk))
-    }
-
-    pub fn place_disk_by_index(&mut self, disk: Disk, index: usize) -> Result<()> {
-        self.get_mut_cell_by_index(index).map(|mut cell| *cell = Some(disk))
+    /// Place a disk on an empty cell.
+    pub fn place_disk(&mut self, side: ::Side, coord: Coord) -> Result<()> {
+        let cell = try!(self.get_mut_cell(coord));
+        match cell {
+            &mut Some(_) => Err(::ReversiError::CellAlreadyTaken(coord)),
+            &mut None => Ok( *cell = Some(Disk::new(side)) ),
+        }
     }
 }
+
+// impl Index<Coord> for Board {
+//     type Output = Cell;
+//     fn index<'a>(&'a self, coord: Coord) -> &'a Self::Output {
+//         & self.0.[coord.get_row()][coord.get_col()]
+//     }
+// }

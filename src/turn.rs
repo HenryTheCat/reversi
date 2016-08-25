@@ -8,7 +8,7 @@ pub type State = Option<::Side>;
 
 /// A turn is given by a board and by which player has to move next.
 /// For convenience we also annotate current scores.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Turn {
     board: Board,
     state: State,
@@ -19,11 +19,11 @@ pub struct Turn {
 impl Turn {
     /// Initializing a new first turn: starting positions on the board and Dark is the first to play
     pub fn first_turn() -> Turn {
-        let mut board = Board([None; NUM_CELLS]);
-        let _ = board.place_disk(Disk::new(::Side::Dark), Coord::new(3, 4));
-        let _ = board.place_disk(Disk::new(::Side::Dark), Coord::new(4, 3));
-        let _ = board.place_disk(Disk::new(::Side::Light), Coord::new(3, 3));
-        let _ = board.place_disk(Disk::new(::Side::Light), Coord::new(4, 4));
+        let mut board = Board::new(&[[None; BOARD_SIZE]; BOARD_SIZE]);
+        board.place_disk(::Side::Dark, Coord::new(3, 4)).expect("This cannot fail");
+        board.place_disk(::Side::Dark, Coord::new(4, 3)).expect("This cannot fail");
+        board.place_disk(::Side::Light, Coord::new(3, 3)).expect("This cannot fail");
+        board.place_disk(::Side::Light, Coord::new(4, 4)).expect("This cannot fail");
 
         Turn {
             board: board,
@@ -39,13 +39,13 @@ impl Turn {
     }
 
     /// Returns the board's cell corresponding to the given coordinates.
-    pub fn get_cell(&self, coord: Coord) -> Result<&Cell> {
+    pub fn get_cell(&self, coord: Coord) -> Result<Cell> {
         self.board.get_cell(coord)
     }
 
     /// Returns the turn's status
-    pub fn get_state(&self) -> &State {
-        &self.state
+    pub fn get_state(&self) -> State {
+        self.state
     }
 
     /// Returns the current score of the match.
@@ -68,11 +68,8 @@ impl Turn {
 
         if self.state.is_none() {
             // If the game is ended, no further moves are possible
-            Err(::ReversiError::EndedGame(*self))
-        } else if coord.check_bounds().is_err() {
-            // If `coord` is out-of-bounds, the move is not legal.
-            Err(::ReversiError::OutOfBoundCoord(coord))
-        } else if try!(self.board.get_cell(coord)).is_some() {
+            Err(::ReversiError::EndedGame)
+        } else if try!(self.board.get_cell(coord)).is_some() { // This also checks `coord`
             // If a cell is already taken, it's not possible to move there
             Err(::ReversiError::CellAlreadyTaken(coord))
         } else {
@@ -89,24 +86,12 @@ impl Turn {
 
     /// Check whether a move leads to eat in a specified direction
     fn check_move_along_direction (&self, coord: Coord, dir: Direction) -> bool {
-        if let Some(state_side) = self.state {
-            let mut next_coord = coord;
-            if next_coord.step(dir).is_ok() {
-                if let Ok(&next_cell) = self.get_cell(next_coord) {
-                    if let Some(next_disk) = next_cell {
-                        if next_disk.get_side() == state_side.opposite() {
-                            while next_coord.step(dir).is_ok() {
-                                if let Ok(&next_cell) = self.board.get_cell(next_coord) {
-                                    return match next_cell {
-                                        None => false,
-                                        Some(successive_disk) if successive_disk.get_side() == state_side => true,
-                                        _ => continue,
-                                    }
-                                } else {
-                                    return false;
-                                }
-                            }
-                        }
+        let mut next_coord = coord;
+        if let Ok(Ok(Some(next_disk))) = next_coord.step(dir).map(|()| self.get_cell(next_coord)) {
+            if Some(next_disk.get_side().opposite()) == self.state {
+                while let Ok(Ok(Some(successive_disk))) = next_coord.step(dir).map(|()| self.get_cell(next_coord)) {
+                    if Some(successive_disk.get_side()) == self.state {
+                        return true;
                     }
                 }
             }
@@ -115,65 +100,50 @@ impl Turn {
     }
 
     /// Eats all of the opponent's occupied cells from a specified cell (given by its coordinates) in a specified direction until it finds a cell of the current player.
-    fn check_and_move_along_direction (&mut self, coord: Coord, dir: Direction) -> Result<()> {
+    fn make_move_along_direction (&mut self, coord: Coord, dir: Direction) -> Result<()> {
 
-        if self.check_move_along_direction(coord, dir) {
-            if let Some(turn) = self.state {
-                let mut next_coord = coord;
-                try!(next_coord.step(dir));
-                try!(self.board.place_disk(Disk::new(turn), next_coord));
-                let mut eating: u8 = 1;
+        let side = try!(self.state.ok_or(::ReversiError::EndedGame));
+        let mut next_coord = coord;
+        let _ = try!(next_coord.step(dir).map(|()| self.board.flip_disk(next_coord)));
+        let mut eating: u8 = 1;
 
-                while next_coord.step(dir).is_ok() {
-                    match *try!(self.board.get_cell(next_coord)) {
-                        Some(disk) => {
-                            if disk.get_side() != turn {
-                                try!(self.board.place_disk(Disk::new(turn), next_coord));
-                                eating += 1;
-                            } else {
-                                break;
-                            }
-                        }
-                        None => return Err(::ReversiError::IllegalMove(coord)),
-                    }
-                }
-                match turn {
-                    ::Side::Light => {
-                        self.score_light += eating;
-                        self.score_dark  -= eating;
-                    }
-                    ::Side::Dark => {
-                        self.score_light -= eating;
-                        self.score_dark  += eating;
-                    }
-                }
-                Ok(())
-            } else {
-                return Err(::ReversiError::EndedGame(*self));
-            }
-        } else {
-            Err(::ReversiError::IllegalMove(coord))
+        while side != try!(try!(next_coord.step(dir).map(|()| self.board.get_disk(next_coord))).map(|disk| disk.get_side())) {
+            try!(self.board.flip_disk(next_coord));
+            eating += 1;
         }
+
+        match side {
+            ::Side::Light => {
+                self.score_light += eating;
+                self.score_dark  -= eating;
+            }
+            ::Side::Dark => {
+                self.score_light -= eating;
+                self.score_dark  += eating;
+            }
+        };
+
+        Ok(())
     }
 
     /// Current player performs a move, after verifying that it is legal.
     /// It returns either the new turn or the error preventing the move to be performed.
-    pub fn check_and_move (&self, coord: Coord) -> Result<Turn> {
+    pub fn make_move (&self, coord: Coord) -> Result<Turn> {
 
-        let &cell = try!(self.board.get_cell(coord));
-        if let None = cell {
+        if let Ok(None) = self.board.get_cell(coord) {
             let mut turn_after_move = self.clone();
             let mut legal = false;
 
             if let Some(turn_side) = self.state {
                 for &dir in &DIRECTIONS {
-                    if turn_after_move.check_and_move_along_direction(coord, dir).is_ok() {
+                    if self.check_move_along_direction(coord, dir) {
+                        try!(turn_after_move.make_move_along_direction(coord, dir));
                         legal = true;
                     }
                 }
 
                 if legal {
-                    try!(turn_after_move.board.place_disk(Disk::new(turn_side), coord));
+                    try!(turn_after_move.board.place_disk(turn_side, coord));
                     match turn_side {
                         ::Side::Dark  => turn_after_move.score_dark  += 1,
                         ::Side::Light => turn_after_move.score_light += 1,
@@ -203,7 +173,7 @@ impl Turn {
                     Err(::ReversiError::IllegalMove(coord))
                 }
             } else {
-                Err(::ReversiError::EndedGame(*self))
+                Err(::ReversiError::EndedGame)
             }
         } else {
             Err(::ReversiError::CellAlreadyTaken(coord))
@@ -213,11 +183,13 @@ impl Turn {
     /// Returns whether or not next_player can make any move at all.
     /// To be used privately. User should rather look at turn's state.
     fn can_move(&self) -> bool {
-        for (index, &cell) in self.board.0.into_iter().enumerate() {
-            if cell.is_none() {
-                for &dir in &DIRECTIONS {
-                    if self.check_move_along_direction(Coord::from_index(index).expect("Serious error in iteration and indexes"), dir) {
-                        return true;
+        for (row, &row_array) in self.board.get_all_cells().into_iter().enumerate() {
+            for (col, &cell) in row_array.into_iter().enumerate() {
+                if cell.is_none() {
+                    for &dir in &DIRECTIONS {
+                        if self.check_move_along_direction(Coord::new(row, col), dir) {
+                            return true;
+                        }
                     }
                 }
             }
