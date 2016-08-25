@@ -55,13 +55,13 @@ impl fmt::Display for ReversiError {
 impl error::Error for ReversiError {
     fn description(&self) -> &str {
         match *self {
-            ReversiError::OutOfBoundCoord(coord) => format!("Out of bound coordinates: {:?}", coord),
-            ReversiError::OutOfBoundStep(coord, dir) => format!("Out of bound step: {:?} going {:?}", coord, dir),
-            ReversiError::CellAlreadyTaken(coord) => format!("The cell you want to move to is already taken: {:?}", coord),
-            ReversiError::IllegalMove(coord) => format!("Illegal move: {:?}", coord),
-            ReversiError::EmptyCell(coord) => format!("The cell you want is empty: {:?}", coord),
-            ReversiError::NoUndo => format!("Undoing is not possible"),
-            ReversiError::EndedGame => format!("The game is already ended"),
+            ReversiError::OutOfBoundCoord(_) => "Out of bound coordinates",
+            ReversiError::OutOfBoundStep(_, _) => "Out of bound step",
+            ReversiError::CellAlreadyTaken(_) => "The cell you want to move to is already taken",
+            ReversiError::IllegalMove(_) => "Illegal move",
+            ReversiError::EmptyCell(_) => "The cell you want is empty",
+            ReversiError::NoUndo => "Undoing is not possible",
+            ReversiError::EndedGame => "The game is already ended",
         }
     }
 
