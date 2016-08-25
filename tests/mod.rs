@@ -86,20 +86,11 @@ impl SimplePlayer {
 
                     for row in 0..board::BOARD_SIZE {
                         for col in 0..board::BOARD_SIZE {
-                            let coord = Coord::new(row, col);
-                            if turn.check_move(coord).is_ok() {
-                                let new_score = self.eval(&turn.make_move(coord).unwrap(), depth - 1);
+                            if let Ok(new_score) = turn.make_move(Coord::new(row, col)).map(|turn_after_move| self.eval(&turn_after_move, depth -1)) {
                                 match side {
-                                    Side::Dark  => {
-                                        if new_score < best_score {
-                                            best_score = new_score;
-                                        }
-                                    },
-                                    Side::Light => {
-                                        if new_score > best_score {
-                                            best_score = new_score;
-                                        }
-                                    },
+                                    Side::Dark  if new_score < best_score => best_score = new_score,
+                                    Side::Light if new_score > best_score => best_score = new_score,
+                                    _ => {}
                                 };
                             }
                         }
@@ -114,9 +105,9 @@ impl SimplePlayer {
 #[test]
 fn test_board() {
     let mut board = board::Board::new(&[[None; board::BOARD_SIZE]; board::BOARD_SIZE]);
-    board.place_disk(Side::Dark, Coord::new(0, 0));
+    board.place_disk(Side::Dark, Coord::new(0, 0)).expect("Cannot fail");
     assert!(board.get_cell(Coord::new(0, 0)).unwrap().unwrap().get_side() == Side::Dark);
-    board.flip_disk(Coord::new(0, 0));
+    board.flip_disk(Coord::new(0, 0)).expect("Cannot fail");
     assert!(board.get_cell(Coord::new(0, 0)).unwrap().unwrap().get_side() == Side::Light);
 }
 

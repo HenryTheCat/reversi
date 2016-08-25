@@ -19,9 +19,7 @@ impl game::IsPlayer<()> for FoolPlayer {
         for (row, &row_array) in turn.get_board().get_all_cells().into_iter().enumerate() {
             for (col, &_) in row_array.into_iter().enumerate() {
                 let coord = Coord::new(row, col);
-                // println!("Fool checks {:?}", coord);
                 if turn.check_move(coord).is_ok() {
-                    // println!("Fool plays {:?}", coord);
                     return Ok(PlayerAction::Move(coord));
                 }
             }
@@ -45,8 +43,7 @@ impl game::IsPlayer<()> for SimplePlayer {
         for row in 0..board::BOARD_SIZE {
             for col in 0..board::BOARD_SIZE {
                 let coord = Coord::new(row, col);
-                if turn.check_move(coord).is_ok() {
-                    let new_score = self.eval(&turn.make_move(coord).unwrap(), 3);
+                if let Ok(new_score) = turn.make_move(coord).map(|turn_after_move| self.eval(&turn_after_move, 3)) {
                     match turn.get_state() {
                         Some(Side::Dark)  => {
                             if new_score < best_score {
@@ -65,7 +62,6 @@ impl game::IsPlayer<()> for SimplePlayer {
                 }
             }
         }
-        // println!("Simple plays {:?}", best_move);
         Ok(PlayerAction::Move(best_move))
     }
 }
