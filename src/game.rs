@@ -45,9 +45,14 @@ impl<'a, A, D: 'a + ?Sized + IsPlayer<A>, L: 'a + ?Sized + IsPlayer<A>> Game<'a,
         self.current_turn.get_board()
     }
 
-    /// Gets the board of the current turn.
+    /// Gets current turn.
     pub fn get_current_turn(&self) -> &Turn {
         &self.current_turn
+    }
+
+    /// Gets current score.
+    pub fn get_current_score(&self) -> (u8, u8) {
+        self.current_turn.get_score()
     }
 
     /// Gets the state of the current turn.
