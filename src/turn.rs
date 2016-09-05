@@ -48,6 +48,11 @@ impl Turn {
         self.state
     }
 
+    /// Returns whether the turn is an endgame
+    pub fn is_endgame(&self) -> bool {
+        self.state == None
+    }
+
     /// Returns the current score of the match.
     pub fn get_score(&self) -> (u8, u8) {
         (self.score_dark, self.score_light)
