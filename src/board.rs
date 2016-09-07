@@ -52,6 +52,13 @@ impl Coord {
         }
     }
 
+    pub const fn new_const(row: usize, col: usize) -> Coord {
+        Coord {
+            row: row,
+            col: col,
+        }
+    }
+
     /// Returns coordinate's components.
     pub fn get_row_col(&self) -> (usize, usize) {
         (self.row, self.col)

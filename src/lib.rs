@@ -8,6 +8,7 @@
 
 #![crate_name = "reversi"]
 #![crate_type = "lib"]
+#![feature(const_fn)]
 
 pub mod board;
 pub mod turn;
