@@ -74,29 +74,30 @@ impl SimplePlayer {
                 if depth == 0 {
                     turn.get_score_diff()
                 } else {
-
-                    let mut best_score = match side {
-                        Side::Dark  => i16::max_value(),
-                        Side::Light => i16::min_value(),
-                    };
+                    let mut scores: Vec<i16> = Vec::new();
 
                     for row in 0..board::BOARD_SIZE {
                         for col in 0..board::BOARD_SIZE {
-                            if let Ok(new_score) = turn.make_move(Coord::new(row, col)).map(|turn_after_move| self.eval(&turn_after_move, depth -1)) {
-                                match side {
-                                    Side::Dark  if new_score < best_score => best_score = new_score,
-                                    Side::Light if new_score > best_score => best_score = new_score,
-                                    _ => {}
-                                };
-                            }
+                            let _ = turn.make_move(Coord::new(row, col))
+                                .map( |turn_after_move| self.eval(&turn_after_move, depth -1))
+                                .map( |new_score| scores.push(new_score) );
                         }
                     }
-                    best_score
+
+                    *match side {
+                        reversi::Side::Dark  => scores.iter().min().unwrap(),
+                        reversi::Side::Light => scores.iter().max().unwrap(),
+                    }
                 }
             }
         }
     }
 }
+
+
+
+
+
 
 /// Runs a full game using `FoolPlayer` for benchmarking purposes.
 #[bench]

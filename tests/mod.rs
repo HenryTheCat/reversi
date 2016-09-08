@@ -19,9 +19,7 @@ impl game::IsPlayer<()> for FoolPlayer {
         for (row, &row_array) in turn.get_board().get_all_cells().into_iter().enumerate() {
             for (col, &_) in row_array.into_iter().enumerate() {
                 let coord = Coord::new(row, col);
-                // println!("Fool checks {:?}", coord);
                 if turn.check_move(coord).is_ok() {
-                    // println!("Fool plays {:?}", coord);
                     return Ok(PlayerAction::Move(coord));
                 }
             }
@@ -65,7 +63,6 @@ impl game::IsPlayer<()> for SimplePlayer {
                 }
             }
         }
-        // println!("Simple plays {:?}", best_move);
         Ok(PlayerAction::Move(best_move))
     }
 }
@@ -78,30 +75,27 @@ impl SimplePlayer {
                 if depth == 0 {
                     turn.get_score_diff()
                 } else {
-
-                    let mut best_score = match side {
-                        Side::Dark  => i16::max_value(),
-                        Side::Light => i16::min_value(),
-                    };
+                    let mut scores: Vec<i16> = Vec::new();
 
                     for row in 0..board::BOARD_SIZE {
                         for col in 0..board::BOARD_SIZE {
-                            if let Ok(new_score) = turn.make_move(Coord::new(row, col)).map(|turn_after_move| self.eval(&turn_after_move, depth -1)) {
-                                match side {
-                                    Side::Dark  if new_score < best_score => best_score = new_score,
-                                    Side::Light if new_score > best_score => best_score = new_score,
-                                    _ => {}
-                                };
-                            }
+                            let _ = turn.make_move(Coord::new(row, col))
+                                .map( |turn_after_move| self.eval(&turn_after_move, depth -1))
+                                .map( |new_score| scores.push(new_score) );
                         }
                     }
-                    best_score
+
+                    *match side {
+                        reversi::Side::Dark  => scores.iter().min().unwrap(),
+                        reversi::Side::Light => scores.iter().max().unwrap(),
+                    }
                 }
             }
         }
     }
 }
 
+/// Checks basic `board` functionalities
 #[test]
 fn test_board() {
     let mut board = board::Board::new(&[[None; board::BOARD_SIZE]; board::BOARD_SIZE]);
@@ -112,7 +106,7 @@ fn test_board() {
 }
 
 
-/// Checks `turn::check_move` method on starting turn.
+/// Checks `turn::check_move` method on starting turn and second turn.
 #[test]
 fn test_first_turn() {
     let first_turn = Turn::first_turn();
