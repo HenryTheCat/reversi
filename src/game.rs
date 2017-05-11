@@ -45,18 +45,13 @@ impl<'a, A, D: 'a + ?Sized + IsPlayer<A>, L: 'a + ?Sized + IsPlayer<A>> Game<'a,
         self.current_turn.get_board()
     }
 
-    /// Gets current turn.
+    /// Gets the board of the current turn.
     pub fn get_current_turn(&self) -> &Turn {
         &self.current_turn
     }
 
-    /// Gets current score.
-    pub fn get_current_score(&self) -> (u8, u8) {
-        self.current_turn.get_score()
-    }
-
     /// Gets the state of the current turn.
-    pub fn get_current_state(&self) -> State {
+    pub fn get_current_state(&self) -> &State {
         self.current_turn.get_state()
     }
 
@@ -67,8 +62,8 @@ impl<'a, A, D: 'a + ?Sized + IsPlayer<A>, L: 'a + ?Sized + IsPlayer<A>> Game<'a,
 
     /// It has the correct player return an action and applies its effects.
     pub fn play_turn(&mut self) -> Result<PlayerAction<A>> {
-        let action = match self.current_turn.get_state() {
-            None => return Err(::ReversiError::EndedGame),
+        let action = match *self.current_turn.get_state() {
+            None => return Err(::ReversiError::EndedGame(self.current_turn)),
             Some(::Side::Dark)  => try!(self.dark.make_move(&self.current_turn)),
             Some(::Side::Light) => try!(self.light.make_move(&self.current_turn)),
         };
@@ -85,16 +80,15 @@ impl<'a, A, D: 'a + ?Sized + IsPlayer<A>, L: 'a + ?Sized + IsPlayer<A>> Game<'a,
 
     /// A move (given by `coord`) is applied. If that move is legal, game's history is updated.
     fn make_move(&mut self, coord: Coord) -> Result<()> {
-        let new_turn = try!(self.current_turn.make_move(coord));
-        self.turns_history.push((self.current_turn.clone(), coord));
-        self.current_turn = new_turn;
-        Ok(())
+        //let new_turn = try!(self.current_turn.check_and_move(coord));
+        //self.turns_history.push((self.current_turn, coord));
+        self.current_turn.check_and_move(coord).map(|()| self.turns_history.push((self.current_turn, coord)) )
     }
 
     /// Undo last move(s) till the player asking for undoing can play again.
     fn undo(&mut self) -> Result<()> {
         let backup = self.turns_history.clone();
-        match self.get_current_state() {
+        match *self.get_current_state() {
             None => {
                 self.current_turn = try!(self.turns_history.pop().ok_or(::ReversiError::NoUndo)).0;
                 let last_side = self.get_current_state().unwrap();
