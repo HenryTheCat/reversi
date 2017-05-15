@@ -70,20 +70,23 @@ impl Coord {
             Direction::North    => self.0 = self.0.wrapping_sub(1),
             Direction::NE       => {
                 self.0 = self.0.wrapping_sub(1);
-                self.1 = self.1.wrapping_sub(1);
+                self.1 += 1;
             },
-            Direction::East     => self.1 = self.1.wrapping_sub(1),
+            Direction::East     => self.1 += 1,
             Direction::SE       => {
                 self.0 += 1;
-                self.1 = self.1.wrapping_sub(1);
+                self.1 += 1;
             },
             Direction::South    => self.0 += 1,
             Direction::SW       => {
                 self.0 += 1;
-                self.1 += 1;
+                self.1 = self.1.wrapping_sub(1);
             },
-            Direction::West     => self.1 += 1,
-            Direction::NW       => self.0 = self.0.wrapping_sub(1),
+            Direction::West     => self.1 = self.1.wrapping_sub(1),
+            Direction::NW       => {
+                self.0 = self.0.wrapping_sub(1);
+                self.1 = self.1.wrapping_sub(1);
+            }
         }
     }
 }
