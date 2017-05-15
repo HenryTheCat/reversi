@@ -60,8 +60,8 @@ impl<'a, A, D: 'a + ?Sized + IsPlayer<A>, L: 'a + ?Sized + IsPlayer<A>> Game<'a,
 
     /// Returns true if the game is ended.
     #[inline(always)]
-    pub fn is_ended(&self) -> bool {
-        self.get_current_state().is_none()
+    pub fn is_endgame(&self) -> bool {
+        self.current_turn.is_end_state()
     }
 
     /// Gets the score of the current turn.

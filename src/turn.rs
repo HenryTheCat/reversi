@@ -52,6 +52,12 @@ impl Turn {
         self.state
     }
 
+    /// Returns whether the turn has `None` state.
+    #[inline(always)]
+    pub fn is_end_state(&self) -> bool {
+        self.state.is_none()
+    }
+
     /// Returns the current score of the match.
     #[inline(always)]
     pub fn get_score(&self) -> (u8, u8) {
