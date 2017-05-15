@@ -9,8 +9,9 @@
 
 #![crate_name = "reversi"]
 #![crate_type = "lib"]
-
 #![feature(test)]
+
+extern crate rand;
 extern crate test;
 
 pub mod board;
