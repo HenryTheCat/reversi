@@ -1,6 +1,6 @@
 [package]
 name = "reversi"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Enrico Ghiorzi <enrico.ghiorzi@gmail.com>"]
 description = "General-purpose Reversi library, written in Rust for speed and efficency. Originally written for RUSThello (https://github.com/EGhiorzi/rusthello)."
 repository = "https://github.com/EGhiorzi/reversi"
@@ -8,3 +8,4 @@ license = "MIT"
 keywords = ["reversi", "othello", "rusthello"]
 
 [dependencies]
+rand = "0.3.*"
