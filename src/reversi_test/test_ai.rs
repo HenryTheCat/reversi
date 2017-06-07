@@ -22,11 +22,7 @@ impl IsPlayer<()> for FoolPlayer {
                 let coord = Coord::new(row, col);
                 // println!("Fool checks {:?}", coord);
                 if turn.check_move(coord).is_ok() {
-                    if RANDOMNESS == 0f64 {
-                        return Ok(PlayerAction::Move(coord));
-                    } else {
-                        moves.push(coord);
-                    }
+                    moves.push(coord);
                 }
             }
         }
@@ -112,18 +108,13 @@ impl IsPlayer<()> for SimplePlayer {
 
             let mut new_turn = turn.clone();
             let mut rng = rand::thread_rng();
+            let between = rand::distributions::Range::new(-RANDOMNESS, RANDOMNESS);
 
             for row in 0..BOARD_SIZE {
                 for col in 0..BOARD_SIZE {
                     let coord = Coord::new(row, col);
                     if new_turn.make_move(coord).is_ok() {
-                        let new_score = ( self.eval(&new_turn, 3) as f64 * match RANDOMNESS > 0f64 {
-                            false => 1f64,
-                            true => {
-                                let between = rand::distributions::Range::new(-RANDOMNESS, RANDOMNESS);
-                                (1.0 + between.ind_sample(&mut rng))
-                            }
-                        } ) as i16;
+                        let new_score = ( self.eval(&new_turn, 3) as f64 * (1.0 + between.ind_sample(&mut rng)) ) as i16;
                         new_turn = turn.clone();
                         if is_better_than(new_score, best_score) {
                             best_move = coord;

@@ -99,7 +99,7 @@ impl<'a, A, D: 'a + ?Sized + IsPlayer<A>, L: 'a + ?Sized + IsPlayer<A>> Game<'a,
     /// A move (given by `coord`) is applied. If that move is legal, game's history is updated.
     #[inline(always)]
     fn make_move(&mut self, coord: Coord) -> Result<()> {
-        self.turns_history.push((self.current_turn.clone(), coord));
+        self.turns_history.push((self.current_turn, coord));
         self.current_turn.make_move(coord)
     }
 
@@ -117,7 +117,7 @@ impl<'a, A, D: 'a + ?Sized + IsPlayer<A>, L: 'a + ?Sized + IsPlayer<A>> Game<'a,
                     }
                 }
                 self.turns_history = backup;
-                return Err(::ReversiError::NoUndo);
+                Err(::ReversiError::NoUndo)
             },
             Some(current_side) => {
                 while let Some((previous_turn, _)) = self.turns_history.pop() {
@@ -127,7 +127,7 @@ impl<'a, A, D: 'a + ?Sized + IsPlayer<A>, L: 'a + ?Sized + IsPlayer<A>> Game<'a,
                     }
                 }
                 self.turns_history = backup;
-                return Err(::ReversiError::NoUndo);
+                Err(::ReversiError::NoUndo)
             }
         }
     }
