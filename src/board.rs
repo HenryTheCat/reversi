@@ -12,7 +12,7 @@ pub const NUM_CELLS: usize = BOARD_SIZE * BOARD_SIZE;
 /// Enums all the cardinal directions.
 /// #Examples
 /// If I am in cell `(4, 5)` and move `NE`, I go to cell `(3, 6)`.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
     North,
     NE,
@@ -22,6 +22,22 @@ pub enum Direction {
     SW,
     West,
     NW,
+}
+
+impl Direction {
+    #[inline(always)]
+    pub fn opposite(&self) -> Direction {
+        match *self {
+            Direction::North => Direction::South,
+            Direction::NE => Direction::SW,
+            Direction::East => Direction::West,
+            Direction::SE => Direction::NW,
+            Direction::South => Direction::North,
+            Direction::SW => Direction::NE,
+            Direction::West => Direction::East,
+            Direction::NW => Direction::SE,
+        }
+    }
 }
 
 /// Lists all cardinal directions from `Direction`.
@@ -38,7 +54,7 @@ pub const DIRECTIONS: [Direction; 8] = [
 
 /// Coordinates of a cell, given by a row and a column.
 /// Follows matrices conventions (see <https://en.wikipedia.org/wiki/Matrix_(mathematics)>) but for starting indexes at 0.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Coord(usize, usize);
 
 impl Coord {
@@ -60,33 +76,22 @@ impl Coord {
 
     #[inline(always)]
     pub fn get_row_col(&self) -> (usize, usize) {
-        (self.0, self.1)
+        (self.get_row(), self.get_col())
     }
 
-    /// Produces new indexes moving along a direction and checking for out-of-bound errors (meaning sub-zero indexes).
+    /// Produces a new `Coord` moving along a direction.
+    /// Do NOT check for out-of-bound errors, but performs wrapping operations.
     #[inline(always)]
-    pub fn step(&mut self, dir: Direction) {
+    pub fn step(&self, dir: Direction) -> Coord {
         match dir {
-            Direction::North    => self.0 = self.0.wrapping_sub(1),
-            Direction::NE       => {
-                self.0 = self.0.wrapping_sub(1);
-                self.1 += 1;
-            },
-            Direction::East     => self.1 += 1,
-            Direction::SE       => {
-                self.0 += 1;
-                self.1 += 1;
-            },
-            Direction::South    => self.0 += 1,
-            Direction::SW       => {
-                self.0 += 1;
-                self.1 = self.1.wrapping_sub(1);
-            },
-            Direction::West     => self.1 = self.1.wrapping_sub(1),
-            Direction::NW       => {
-                self.0 = self.0.wrapping_sub(1);
-                self.1 = self.1.wrapping_sub(1);
-            }
+            Direction::North    => Coord::new(self.0.wrapping_sub(1), self.1),
+            Direction::NE       => Coord::new(self.0.wrapping_sub(1), self.1.wrapping_add(1)),
+            Direction::East     => Coord::new(self.0, self.1.wrapping_add(1)),
+            Direction::SE       => Coord::new(self.0.wrapping_add(1), self.1.wrapping_add(1)),
+            Direction::South    => Coord::new(self.0.wrapping_add(1), self.1),
+            Direction::SW       => Coord::new(self.0.wrapping_add(1), self.1.wrapping_sub(1)),
+            Direction::West     => Coord::new(self.0, self.1.wrapping_sub(1)),
+            Direction::NW       => Coord::new(self.0.wrapping_sub(1), self.1.wrapping_sub(1)),
         }
     }
 }
@@ -118,20 +123,13 @@ impl Disk {
 /// Each cell in the board can either be empty or taken by one of the players.
 pub type Cell = Option<Disk>;
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Board([[Cell; BOARD_SIZE]; BOARD_SIZE]);
 
 impl fmt::Debug for Board {
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "This should be a board")
-    }
-}
-
-impl Clone for Board {
-    #[inline(always)]
-    fn clone(&self) -> Board {
-        *self
     }
 }
 
@@ -145,21 +143,21 @@ impl Board {
 
     #[inline(always)]
     pub fn get_cell(&self, coord: Coord) -> Result<&Cell> {
-        self.0.get(coord.get_row()).ok_or(::ReversiError::OutOfBoundCoord(coord))?
-            .get(coord.get_col()).ok_or(::ReversiError::OutOfBoundCoord(coord))
+        self.0.get(coord.get_row()).ok_or_else(|| ::ReversiError::OutOfBoundCoord(coord))?
+            .get(coord.get_col()).ok_or_else(|| ::ReversiError::OutOfBoundCoord(coord))
     }
 
     #[inline(always)]
     fn get_mut_cell(&mut self, coord: Coord) -> Result<&mut Cell> {
-        self.0.get_mut(coord.get_row()).ok_or(::ReversiError::OutOfBoundCoord(coord))?
-            .get_mut(coord.get_col()).ok_or(::ReversiError::OutOfBoundCoord(coord))
+        self.0.get_mut(coord.get_row()).ok_or_else(|| ::ReversiError::OutOfBoundCoord(coord))?
+            .get_mut(coord.get_col()).ok_or_else(|| ::ReversiError::OutOfBoundCoord(coord))
     }
 
     #[inline(always)]
     pub fn flip_disk(&mut self, coord: Coord) -> Result<()> {
         self.get_mut_cell(coord).and_then(|mut cell| {
             cell.as_mut()
-                .ok_or(::ReversiError::EmptyCell(coord))?
+                .ok_or_else(|| ::ReversiError::EmptyCell(coord))?
                 .flip();
             Ok(())
         })

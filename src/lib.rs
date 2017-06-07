@@ -1,15 +1,15 @@
-//! The `reversi` library (ver. 0.1.0) provides the main structures and mechanics required to run a Reversi game.
+//! The `reversi` library (ver. 0.4.0) provides the main structures and mechanics required to run a Reversi game.
 //! In view of possible AIs developement, the library keeps an eye on performances.
 //! Released under MIT license.
 
-// Roadmap to 0.1.0:
+// TODO:
 // ReversiError::NoUndo needs a turn::Turn value
-// board::Board needs IntoIter so that its (unique) component can be made private
-// Coord should be an enum with fields Cartesian{row: usize, col: usize} and Index(usize)
 
 #![crate_name = "reversi"]
 #![crate_type = "lib"]
 #![feature(test)]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 
 extern crate rand;
 extern crate test;
