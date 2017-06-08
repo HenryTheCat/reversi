@@ -5,8 +5,8 @@
 // TODO:
 // ReversiError::NoUndo needs a turn::Turn value
 
+#![crate_type = "rlib"]
 #![crate_name = "reversi"]
-#![crate_type = "lib"]
 #![feature(test)]
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
