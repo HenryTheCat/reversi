@@ -97,7 +97,7 @@ impl Turn {
     }
 
     /// Check whether a given move is legal
-    #[inline]
+    #[inline(always)]
     pub fn check_move (&self, coord: Coord) -> Result<()> {
         // If the game is ended, no further moves are possible
         let state_side = self.state.ok_or_else(|| ::ReversiError::EndedGame(*self))?;
@@ -137,7 +137,7 @@ impl Turn {
 
     /// Current player performs a move, after verifying that it is legal.
     /// It returns either the new turn or the error preventing the move to be performed.
-    #[inline]
+    #[inline(always)]
     pub fn make_move (&mut self, coord: Coord) -> Result<()> {
         if self.get_cell(coord)?.is_none() {
             let turn_side = self.state.ok_or_else(|| ::ReversiError::EndedGame(*self))?;
@@ -209,17 +209,9 @@ impl Turn {
         }
     }
 
-    /// Returns whether or not next_player can make any move at all.
-    /// To be used privately. User should rather look at turn's state.
- //     #[inline(always)]
- //     fn can_move(&self) -> bool {
- //        (0..BOARD_SIZE).any(|row|
- //            (0..BOARD_SIZE).any(|col|
- //                self.check_move(Coord::new(row, col)).is_ok()))
- //     }
-
-
-    #[inline]
+	/// Returns whether or not next_player can make any move at all.
+	/// To be used privately. User should rather look at turn's state.
+    #[inline(always)]
     fn can_move(&self) -> bool {
         if let Some(state_side) = self.state {
             macro_rules! check_move_along_directions {
@@ -256,5 +248,13 @@ impl Turn {
             false
         }
     }
+	// OLD VERSION
+	//     #[inline(always)]
+	//     fn can_move(&self) -> bool {
+	//        (0..BOARD_SIZE).any(|row|
+	//            (0..BOARD_SIZE).any(|col|
+	//                self.check_move(Coord::new(row, col)).is_ok()))
+	//     }
+
 
 }

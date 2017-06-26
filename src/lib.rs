@@ -1,4 +1,4 @@
-//! The `reversi` library (ver. 0.4.0) provides the main structures and mechanics required to run a Reversi game.
+//! The `reversi` library provides the main structures and mechanics required to run a Reversi game.
 //! In view of possible AIs developement, the library keeps an eye on performances.
 //! Released under MIT license.
 
@@ -7,19 +7,12 @@
 
 #![crate_name = "reversi"]
 #![crate_type = "lib"]
-#![feature(test)]
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
-
-extern crate rand;
-extern crate test;
 
 pub mod board;
 pub mod turn;
 pub mod game;
-
-#[cfg(test)]
-mod reversi_test;
 
 use std::fmt;
 use board::{Coord, Direction};

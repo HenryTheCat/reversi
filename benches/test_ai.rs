@@ -1,47 +1,144 @@
-//! Test module.
+//! AI tests
 
-mod test_ai;
+#![feature(test)]
 
-use test;
-use board::*;
-use turn::*;
-use game::*;
-use reversi_test::test_ai::*;
+/// Simple AIs to test the library's performances.
+
+extern crate rand;
+extern crate test;
+extern crate reversi;
+
+use reversi::board::*;
+use reversi::turn::*;
+use reversi::game::*;
+use reversi::{Result, ReversiError, Side};
+use rand::{Rng};
+use rand::distributions::{IndependentSample};
 use std::cmp::Ordering;
 
-/// Checks `turn::check_move` method on starting turn.
-#[bench]
-fn test_first_turn(b: &mut test::Bencher) {
-    let first_turn = Turn::first_turn();
-    b.iter(|| {
+const RANDOMNESS: f64 = 0.05f64;
+
+/// A stupid class implementing `IsPlayer` to be used for testing purposes.
+pub struct FoolPlayer;
+
+impl IsPlayer<()> for FoolPlayer {
+    /// `FoolPlayer` plays a random (though legal) move.
+    fn make_move(&self, turn: &Turn) -> Result<PlayerAction<()>> {
+        let mut moves = Vec::new();
         for row in 0..BOARD_SIZE {
             for col in 0..BOARD_SIZE {
                 let coord = Coord::new(row, col);
-                assert!(first_turn.check_move(coord).is_ok() == match coord.get_row_col() {
-                    (2, 3) | (3, 2) | (4, 5) | (5, 4) => true,
-                    _ => false,
-                }, "fails at {:?} because {:?}", coord, first_turn.check_move(coord))
+                // println!("Fool checks {:?}", coord);
+                if turn.check_move(coord).is_ok() {
+                    moves.push(coord);
+                }
             }
         }
-    });
+        let chosen_move = rand::thread_rng().choose(&moves).ok_or_else(|| ReversiError::EndedGame(*turn))?;
+        Ok(PlayerAction::Move(*chosen_move))
+    }
 }
 
-#[bench]
-fn test_second_turn(b: &mut test::Bencher) {
-    let mut second_turn = Turn::first_turn();
-    second_turn.make_move(Coord::new(2, 3)).expect("Is this move illegal?");
-    b.iter(|| {
-        for row in 0..BOARD_SIZE {
-            for col in 0..BOARD_SIZE {
-                let coord = Coord::new(row, col);
-                assert!(second_turn.check_move(coord).is_ok() == match coord.get_row_col() {
-                    (2, 2) | (2, 4) | (4, 2) => true,
-                    _ => false,
-                }, "fails at {:?} because {:?}", coord, second_turn.check_move(coord))
+/// A simple class implementing `IsPlayer` to be used for testing purposes.
+pub struct SimplePlayer;
+
+impl SimplePlayer {
+
+    #[inline(always)]
+    fn is_better_dark(new_score: i16, old_score: i16) -> bool {
+        new_score < old_score
+    }
+
+    #[inline(always)]
+    fn is_better_light(new_score: i16, old_score: i16) -> bool {
+        new_score > old_score
+    }
+
+    #[inline(always)]
+    fn eval(&self, turn: &Turn, depth: u8) -> i16 {
+        match turn.get_state() {
+            None => turn.get_score_diff() * NUM_CELLS as i16,
+            Some(side) => {
+                if depth == 0 {
+                    turn.get_score_diff()
+                } else {
+                    let is_better_than: fn(i16, i16) -> bool;
+                    let mut best_score;
+                    match side {
+                        Side::Dark  => {
+                            best_score = i16::max_value();
+                            is_better_than = SimplePlayer::is_better_dark;
+                        }
+                        Side::Light => {
+                            best_score = i16::min_value();
+                            is_better_than = SimplePlayer::is_better_light;
+                        }
+                    }
+
+                    let mut new_turn = *turn;
+
+                    for row in 0..BOARD_SIZE {
+                        for col in 0..BOARD_SIZE {
+                            let coord = Coord::new(row, col);
+                            if new_turn.make_move(coord).is_ok() {
+                                let new_score = self.eval(&new_turn, depth - 1);
+                                new_turn = *turn;
+                                if is_better_than(new_score, best_score) {
+                                    best_score = new_score;
+                                }
+                            }
+                        }
+                    }
+                    best_score
+                }
             }
         }
-    });
+    }
 }
+
+impl IsPlayer<()> for SimplePlayer {
+
+    fn make_move(&self, turn: &Turn) -> Result<PlayerAction<()>> {
+        let is_better_than: fn(i16, i16) -> bool;
+        let mut best_move = Coord::new(0, 0);
+        if let Some(current_state_side) = turn.get_state() {
+            let mut best_score;
+            match current_state_side {
+                ::Side::Dark  => {
+                    best_score = i16::max_value();
+                    is_better_than = SimplePlayer::is_better_dark;
+                }
+                ::Side::Light => {
+                    best_score = i16::min_value();
+                    is_better_than = SimplePlayer::is_better_light;
+                }
+            }
+
+            let mut new_turn = *turn;
+            let mut rng = rand::thread_rng();
+            let between = rand::distributions::Range::new(-RANDOMNESS, RANDOMNESS);
+
+            for row in 0..BOARD_SIZE {
+                for col in 0..BOARD_SIZE {
+                    let coord = Coord::new(row, col);
+                    if new_turn.make_move(coord).is_ok() {
+                        let new_score = ( self.eval(&new_turn, 3) as f64 * (1.0 + between.ind_sample(&mut rng)) ) as i16;
+                        new_turn = *turn;
+                        if is_better_than(new_score, best_score) {
+                            best_move = coord;
+                            best_score = new_score;
+                        }
+                    }
+                }
+            }
+            // println!("Simple plays {:?}", best_move);
+            Ok(PlayerAction::Move(best_move))
+        } else {
+            Err(::ReversiError::EndedGame(*turn))
+        }
+    }
+}
+
 
 /// Runs a full game using `FoolPlayer` for benchmarking purposes.
 #[bench]
